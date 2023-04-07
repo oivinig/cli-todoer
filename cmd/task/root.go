@@ -7,13 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// task is root command
-// add is leaf command for task
-// do is leaf command for task
-// list is leaf command for task
-// delete is leaf command for task
-
-
 var (
 	rootCmd = &cobra.Command{
 		Use:   "task",

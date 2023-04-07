@@ -1,10 +1,20 @@
 package usecases
 
-import "github.com/oivinig/cli-todoer/internal/app/domain"
+import (
+	"github.com/oivinig/cli-todoer/internal/app/domain"
+)
 
 // A TaskInteractor belong to the usecases layer
 type TaskInteractor struct {
 	TaskRepository TaskRepository
+}
+
+func (ti *TaskInteractor) Add(description string) error {
+	err := ti.TaskRepository.Create(description)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ti *TaskInteractor) List() (domain.TodoList, error) {
@@ -15,4 +25,10 @@ func (ti *TaskInteractor) List() (domain.TodoList, error) {
 	return tasks, nil
 }
 
-//TODO: implement next methods
+func (ti *TaskInteractor) Do(key string) error {
+	err := ti.TaskRepository.DeleteById(key)
+	if err != nil {
+		return err
+	}
+	return nil
+}

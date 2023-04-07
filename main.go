@@ -5,6 +5,5 @@ import (
 )
 
 func main() {
-	//TODO: initialize the application
 	task.Execute()
 }

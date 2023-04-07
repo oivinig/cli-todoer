@@ -1,102 +1,81 @@
 package infrastructure
 
 import (
-	"fmt"
+	"encoding/binary"
 	"log"
+	"path/filepath"
+	"time"
 
 	"github.com/boltdb/bolt"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/oivinig/cli-todoer/internal/app/interfaces"
 )
 
 type DBHandler struct {
 	Conn *bolt.DB
 }
-
-var bucketName = []byte("TASKS") //TODO: create logic to receive the bucket name and use each name for each statuses
+var bucketName = []byte("tasks")
 
 func Connect() (interfaces.DBHandler, error) {
 	dbHandler := &DBHandler{}
-	db, err := bolt.Open("/Users/vghffmnn/development/cli-todoer/bolt.db", 0644, nil) //FIXME: implement to get the path from env-var
+	home, _ := homedir.Dir()
+	dbPath := filepath.Join(home, "tasks.db")
+	
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second}) 
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
 	dbHandler.Conn = db
 	return dbHandler, err
 }
 
-func (db *DBHandler) Create(key []byte, value []byte) error {
-	err := db.Conn.Update(func (tx *bolt.Tx) error {
+func (db *DBHandler) Create(value string) error {
+	var id int
+	return db.Conn.Update(func (tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(bucketName)
 		if err != nil {
 			return err
 		}
 
-		err = bucket.Put(key, value)
+		id64, _ := bucket.NextSequence()
+		id = int(id64)
+		key := itob(id)
+
+		err = bucket.Put(key, []byte(value))
 		if err != nil {
 			return err
 		}
 		return nil
 	})
-
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
-// FIXME: change the logic to return an array of bytes (of all the values in the bucket)
-func (db *DBHandler) Retrieve(key []byte) []byte {
-	var val []byte
+func (db *DBHandler) Retrieve() ([][]byte, [][]byte, error) {
+	var keys [][]byte
+	var values [][]byte
 	err := db.Conn.View(func (tx *bolt.Tx) error {
-		bucket := tx.Bucket(bucketName)
-		if bucket == nil {
-			return fmt.Errorf("bucket %q not found", bucketName)
-		}
-
-		val = bucket.Get(key)
+		b := tx.Bucket(bucketName)
+		c := b.Cursor()
+		for k, v  := c.First(); k != nil; k, v = c.Next() {
+			keys = append(keys, k)
+			values = append(values, v)
+		}	
 		return nil
 	})
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, err
 	}
-	return val
+	return keys, values, nil
 }
 
-
-func (db *DBHandler) Update(key []byte, value []byte) {
-	err := db.Conn.Update(func (tx *bolt.Tx) error {
-		bucket := tx.Bucket(bucketName)
-		if bucket == nil {
-			return fmt.Errorf("bucket %q not found", bucketName)
-		}
-		
-		err := bucket.Put(key, value)
-		if err != nil {
-			return err
-		}
-		return nil
+func (db *DBHandler) Delete(key int) error {
+	return db.Conn.Update(func (tx *bolt.Tx) error {
+		b := tx.Bucket(bucketName)
+		return b.Delete(itob(key))
 	})
-
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
-func (db *DBHandler) Delete(key []byte) {
-	err := db.Conn.Update(func (tx *bolt.Tx) error {
-		bucket := tx.Bucket(bucketName)
-		if bucket == nil {
-			return fmt.Errorf("bucket %q not found", bucketName)
-		}
-
-		err := bucket.Delete(key)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+func itob(v int) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
 }

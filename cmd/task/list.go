@@ -1,13 +1,30 @@
 package task
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+	"log"
+
+	"github.com/oivinig/cli-todoer/internal/app/infrastructure"
+	"github.com/oivinig/cli-todoer/internal/app/interfaces"
+	"github.com/spf13/cobra"
+)
 
 var listCmd = &cobra.Command{
 	Use: "list",
 	Short: "List all the tasks from TODO list",
-	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		//TODO: implement function
+		db, err := infrastructure.Connect()
+		if err != nil {
+			log.Fatal(err)
+		}
+		cmdr := interfaces.NewTaskCommander(db)
+		values, err := cmdr.TaskInteractor.List()
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, v := range values {
+			fmt.Println(v)
+		}
 	},
 }
 
